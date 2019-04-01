@@ -144,7 +144,8 @@ namespace realsense2_camera
                                const tf::Quaternion& q,
                                const std::string& from,
                                const std::string& to);
-
+	int _pose_fps_div; // pose fps divider 1-
+	bool _publish_tf;
 
     private:
         class CIMUHistory
