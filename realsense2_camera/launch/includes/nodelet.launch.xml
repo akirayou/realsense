@@ -29,6 +29,7 @@
   <arg name="infra_fps"           default="30"/>
   <arg name="color_fps"           default="30"/>
   <arg name="gyro_fps"            default="0"/>
+  <arg name="pose_fps_div"            default="1"/>
   <arg name="accel_fps"           default="0"/>
   <arg name="enable_gyro"         default="true"/>
   <arg name="enable_accel"        default="true"/>
@@ -39,6 +40,7 @@
 
   <arg name="enable_sync"         default="false"/>
   <arg name="align_depth"         default="false"/>
+  <arg name="publish_tf"         default="true"/>
 
   <arg name="base_frame_id"             default="$(arg tf_prefix)_link"/>
   <arg name="depth_frame_id"            default="$(arg tf_prefix)_depth_frame"/>
@@ -74,7 +76,8 @@
 
   <arg name="filters"                  default=""/>
   <arg name="clip_distance"            default="-1"/>
-  <arg name="linear_accel_cov"         default="0.01"/>
+  <arg name="linear_accel_cov"         default="0.1"/>
+  <arg name="angular_velocity_cov"     default="0.01"/>
   <arg name="initial_reset"            default="false"/>
   <arg name="unite_imu_method"         default="none"/> <!-- Options are: [none, copy, linear_interpolation] -->
 
@@ -90,6 +93,7 @@
     <param name="pointcloud_texture_index"  type="int" value="$(arg pointcloud_texture_index)"/>
     <param name="enable_sync"              type="bool" value="$(arg enable_sync)"/>
     <param name="align_depth"              type="bool" value="$(arg align_depth)"/>
+    <param name="publish_tf"              type="bool" value="$(arg publish_tf)"/>
 
     <param name="fisheye_width"            type="int"  value="$(arg fisheye_width)"/>
     <param name="fisheye_height"           type="int"  value="$(arg fisheye_height)"/>
@@ -115,6 +119,7 @@
     <param name="infra_fps"               type="int"  value="$(arg infra_fps)"/>
     <param name="color_fps"                type="int"  value="$(arg color_fps)"/>
     <param name="gyro_fps"                 type="int"  value="$(arg gyro_fps)"/>
+    <param name="pose_fps_div"                 type="int"  value="$(arg pose_fps_div)"/>
     <param name="accel_fps"                type="int"  value="$(arg accel_fps)"/>
     <param name="enable_gyro"              type="bool" value="$(arg enable_gyro)"/>
     <param name="enable_accel"             type="bool" value="$(arg enable_accel)"/>
@@ -154,6 +159,7 @@
     <param name="filters"                  type="str"    value="$(arg filters)"/>
     <param name="clip_distance"            type="double" value="$(arg clip_distance)"/>
     <param name="linear_accel_cov"         type="double" value="$(arg linear_accel_cov)"/>
+    <param name="angular_velocity_cov"         type="double" value="$(arg angular_velocity_cov)"/>
     <param name="initial_reset"            type="bool"   value="$(arg initial_reset)"/>
     <param name="unite_imu_method"         type="str"    value="$(arg unite_imu_method)"/>
 

@@ -400,6 +400,8 @@ rs2_stream BaseRealSenseNode::rs2_string_to_stream(std::string str)
 void BaseRealSenseNode::getParameters()
 {
     ROS_INFO("getParameters...");
+    _pnh.param("publish_tf", _publish_tf, true);
+    _pnh.param("pose_fps_div", _pose_fps_div, 1);
     _pnh.param("align_depth", _align_depth, ALIGN_DEPTH);
     _pnh.param("enable_pointcloud", _pointcloud, POINTCLOUD);
     std::string pc_texture_stream("");
@@ -1317,8 +1319,6 @@ void BaseRealSenseNode::pose_callback(rs2::frame frame)
     pose_msg.pose.orientation.y = -pose.rotation.x;
     pose_msg.pose.orientation.z = pose.rotation.y;
     pose_msg.pose.orientation.w = pose.rotation.w;
-
-    static tf2_ros::TransformBroadcaster br;
     geometry_msgs::TransformStamped msg;
     msg.header.stamp = t;
     msg.header.frame_id = _odom_frame_id;
@@ -1330,13 +1330,14 @@ void BaseRealSenseNode::pose_callback(rs2::frame frame)
     msg.transform.rotation.y = pose_msg.pose.orientation.y;
     msg.transform.rotation.z = pose_msg.pose.orientation.z;
     msg.transform.rotation.w = pose_msg.pose.orientation.w;
-
-    br.sendTransform(msg);
-
+    if(_publish_tf){
+        static tf2_ros::TransformBroadcaster br;
+        br.sendTransform(msg);
+    }
     if (0 != _imu_publishers[stream_index].getNumSubscribers())
     {
-        double cov_pose(_linear_accel_cov * pow(10, 3-(int)pose.tracker_confidence));
-        double cov_twist(_angular_velocity_cov * pow(10, 1-(int)pose.tracker_confidence));
+        double cov_pose(_linear_accel_cov * pow(25, 3-(int)pose.tracker_confidence));
+        double cov_twist(_angular_velocity_cov * pow(25, 3-(int)pose.tracker_confidence));
 
         geometry_msgs::Vector3Stamped v_msg;
         v_msg.vector.x = -pose.velocity.z;
@@ -1568,7 +1569,7 @@ void BaseRealSenseNode::multiple_message_callback(rs2::frame frame, imu_sync_met
             else imu_callback(frame);
             break;
         case RS2_STREAM_POSE:
-            pose_callback(frame);
+	  { static int count=0; count++;if(count==_pose_fps_div){ pose_callback(frame);count=0;}}
             break;
         default:
             frame_callback(frame);
