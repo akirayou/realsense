@@ -39,7 +39,7 @@ void SyncedImuPublisher::Publish(sensor_msgs::Imu imu_msg)
     else
     {
         _publisher.publish(imu_msg);
-        // ROS_INFO_STREAM("iid1:" << imu_msg.header.seq << ", time: " << std::setprecision (20) << imu_msg.header.stamp.toSec());
+        // ROS_INFO_STREAM("iid1:" << imu_msg.seq << ", time: " << std::setprecision (20) << imu_msg.header.stamp.toSec());
     }
     return;
 }
@@ -86,9 +86,16 @@ BaseRealSenseNode::BaseRealSenseNode(ros::NodeHandle& nodeHandle,
     _serial_no(serial_no),
     _timestampDiff(-1e+200),
     _timestampStart(-1),
-    _skipTimestampCorrection(false),
 	_timestampSource(TIMESTAMP_SOURCE_NONE),
-    _namespace(getNamespaceStr())
+    _skipTimestampCorrection(false),
+    _namespace(getNamespaceStr()),
+    _imu_history(2),
+    imu_sync_seq(0),
+    init_gyro(false), 
+    init_accel(false),
+    accel_factor(0),
+    warn_count_publishPointCloud(0)
+
 {
     // Types for depth stream
     _image_format[RS2_STREAM_DEPTH] = CV_16UC1;    // CVBridge type
@@ -1054,7 +1061,6 @@ BaseRealSenseNode::CIMUHistory::imuData BaseRealSenseNode::CIMUHistory::imuData:
 
 double BaseRealSenseNode::FillImuData_LinearInterpolation(const stream_index_pair stream_index, const BaseRealSenseNode::CIMUHistory::imuData imu_data, sensor_msgs::Imu& imu_msg)
 {
-    static CIMUHistory _imu_history(2);
     CIMUHistory::sensor_name this_sensor(static_cast<CIMUHistory::sensor_name>(ACCEL == stream_index));
     CIMUHistory::sensor_name that_sensor(static_cast<CIMUHistory::sensor_name>(!this_sensor));
     _imu_history.add_data(this_sensor, imu_data);
@@ -1123,9 +1129,6 @@ void BaseRealSenseNode::imu_callback_sync(rs2::frame frame, imu_sync_method sync
     static std::mutex m_mutex;
     static const stream_index_pair stream_imu = GYRO;
     static sensor_msgs::Imu imu_msg = sensor_msgs::Imu();
-    static int seq = 0;
-    static bool init_gyro(false), init_accel(false);
-    static double accel_factor(0);
     imu_msg.header.frame_id = _frame_id[stream_imu];
     imu_msg.orientation.x = 0.0;
     imu_msg.orientation.y = 0.0;
@@ -1144,7 +1147,7 @@ void BaseRealSenseNode::imu_callback_sync(rs2::frame frame, imu_sync_method sync
         auto stream_index = (stream == GYRO.first)?GYRO:ACCEL;
 
 		ros::Time t(timestampFromFrame(frame));
-        seq += 1;
+        imu_sync_seq += 1;
 
         if (0 != _synced_imu_publisher->getNumSubscribers())
         {
@@ -1192,7 +1195,7 @@ void BaseRealSenseNode::imu_callback_sync(rs2::frame frame, imu_sync_method sync
             }
             if (elapsed_camera < 0)
                 break;
-            imu_msg.header.seq = seq;
+            imu_msg.header.seq = imu_sync_seq;
             imu_msg.header.stamp = t;
             if (!(init_gyro && init_accel))
                 break;
@@ -1342,7 +1345,6 @@ void BaseRealSenseNode::pose_callback(rs2::frame frame)
     pose_msg.pose.orientation.z = pose.rotation.y;
     pose_msg.pose.orientation.w = pose.rotation.w;
 
-    static tf2_ros::TransformBroadcaster br;
     geometry_msgs::TransformStamped msg;
     msg.header.stamp = t;
     msg.header.frame_id = _odom_frame_id;
@@ -1437,7 +1439,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                 auto stream_format = f.get_profile().format();
                 auto stream_unique_id = f.get_profile().unique_id();
 
-                ROS_DEBUG("Frameset contain (%s, %d, %s %d) frame. frame_number: %llu  ; ros_TS(NSec): %lu",
+                ROS_DEBUG("Frameset contain (%s, %d, %s %d) frame. frame_number: %llu  ; ros_TS(NSec): %llu",
                             rs2_stream_to_string(stream_type), stream_index, rs2_format_to_string(stream_format), stream_unique_id, frame.get_frame_number(), t.toNSec());
             }
             // Clip depth_frame for max range:
@@ -1463,7 +1465,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                 auto stream_format = f.get_profile().format();
                 auto stream_unique_id = f.get_profile().unique_id();
 
-                ROS_DEBUG("Frameset contain (%s, %d, %s %d) frame. frame_number: %llu ; ros_TS(NSec): %lu",
+                ROS_DEBUG("Frameset contain (%s, %d, %s %d) frame. frame_number: %llu ; ros_TS(NSec): %llu",
                             rs2_stream_to_string(stream_type), stream_index, rs2_format_to_string(stream_format), stream_unique_id, frame.get_frame_number(), t.toNSec());
             }
             ROS_DEBUG("END OF LIST");
@@ -1512,7 +1514,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                 auto stream_index = f.get_profile().stream_index();
                 auto stream_format = f.get_profile().format();
 
-                ROS_DEBUG("Frameset contain (%s, %d, %s) frame. frame_number: %llu ; ros_TS(NSec): %lu",
+                ROS_DEBUG("Frameset contain (%s, %d, %s) frame. frame_number: %llu ; ros_TS(NSec): %llu",
                             rs2_stream_to_string(stream_type), stream_index, rs2_format_to_string(stream_format), frame.get_frame_number(),  t.toNSec());
 
                 if (f.is<rs2::points>())
@@ -1544,7 +1546,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
         {
             auto stream_type = frame.get_profile().stream_type();
             auto stream_index = frame.get_profile().stream_index();
-            ROS_DEBUG("Single video frame arrived (%s, %d). frame_number: %llu ; ros_TS(NSec): %lu",
+            ROS_DEBUG("Single video frame arrived (%s, %d). frame_number: %llu ; ros_TS(NSec): %llu",
                         rs2_stream_to_string(stream_type), stream_index, frame.get_frame_number(), t.toNSec());
 
             stream_index_pair sip{stream_type,stream_index};
@@ -1872,7 +1874,7 @@ void BaseRealSenseNode::publishPointCloud(rs2::points pc, const ros::Time& t, co
     std::vector<NamedFilter>::iterator pc_filter = find_if(_filters.begin(), _filters.end(), [] (NamedFilter s) { return s._name == "pointcloud"; } );
     rs2_stream texture_source_id = static_cast<rs2_stream>(pc_filter->_filter->get_option(rs2_option::RS2_OPTION_STREAM_FILTER));
     bool use_texture = texture_source_id != RS2_STREAM_ANY;
-    static int warn_count(0);
+    
     static const int DISPLAY_WARN_NUMBER(5);
     rs2::frameset::iterator texture_frame_itr = frameset.end();
     if (use_texture)
@@ -1884,12 +1886,12 @@ void BaseRealSenseNode::publishPointCloud(rs2::points pc, const ros::Time& t, co
                                             (available_formats.find(f.get_profile().format()) != available_formats.end()); });
         if (texture_frame_itr == frameset.end())
         {
-            warn_count++;
+            warn_count_publishPointCloud++;
             std::string texture_source_name = pc_filter->_filter->get_option_value_description(rs2_option::RS2_OPTION_STREAM_FILTER, static_cast<float>(texture_source_id));
-            ROS_WARN_STREAM_COND(warn_count == DISPLAY_WARN_NUMBER, "No stream match for pointcloud chosen texture " << texture_source_name);
+            ROS_WARN_STREAM_COND(warn_count_publishPointCloud == DISPLAY_WARN_NUMBER, "No stream match for pointcloud chosen texture " << texture_source_name);
             return;
         }
-        warn_count = 0;
+        warn_count_publishPointCloud = 0;
     }
 
     int texture_width(0), texture_height(0);

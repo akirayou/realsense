@@ -191,8 +191,8 @@ namespace realsense2_camera
         void setupFilters();
         void setupStreams();
         double timestampFromFrame(const rs2::frame &frame);
-	double elapsedTimeFromFrame(const rs2::frame &frame);
-	double frameTime(const rs2::frame &frame);
+	    double elapsedTimeFromFrame(const rs2::frame &frame);
+	    double frameTime(const rs2::frame &frame);
         cv::Mat& fix_depth_scale(const cv::Mat& from_image, cv::Mat& to_image);
         void clip_depth(rs2::depth_frame depth_frame, float clipping_dist);
         void updateStreamCalibData(const rs2::video_stream_profile& video_profile);
@@ -289,6 +289,12 @@ namespace realsense2_camera
 
         const std::string _namespace;
 
+        CIMUHistory _imu_history;
+        int imu_sync_seq;
+        bool init_gyro, init_accel;
+        double accel_factor;
+        tf2_ros::TransformBroadcaster br;
+        int warn_count_publishPointCloud;
     };//end class
 
 }

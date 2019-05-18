@@ -6,11 +6,11 @@
 #include "../include/t265_realsense_node.h"
 #include <iostream>
 #include <map>
-#include <mutex>
 #include <condition_variable>
 #include <signal.h>
 #include <thread>
 #include <sys/time.h>
+#include <mutex>
 
 using namespace realsense2_camera;
 
@@ -19,7 +19,6 @@ constexpr auto realsense_ros_camera_version = REALSENSE_ROS_EMBEDDED_VERSION_STR
 
 PLUGINLIB_EXPORT_CLASS(realsense2_camera::RealSenseNodeFactory, nodelet::Nodelet)
 
-rs2::device _device;
 std::mutex _device_mutex;
 
 RealSenseNodeFactory::RealSenseNodeFactory()
@@ -27,7 +26,7 @@ RealSenseNodeFactory::RealSenseNodeFactory()
 	ROS_INFO("RealSense ROS v%s", REALSENSE_ROS_VERSION_STR);
 	ROS_INFO("Running with LibRealSense v%s", RS2_API_VERSION_STR);
 
-	signal(SIGINT, signalHandler);
+	//signal(SIGINT, signalHandler);
 	auto severity = rs2_log_severity::RS2_LOG_SEVERITY_WARN;
 	tryGetLogSeverity(severity);
 	if (rs2_log_severity::RS2_LOG_SEVERITY_DEBUG == severity)
@@ -35,6 +34,12 @@ RealSenseNodeFactory::RealSenseNodeFactory()
 
 	rs2::log_to_console(severity);
 }
+
+RealSenseNodeFactory::~RealSenseNodeFactory()
+{
+	closeDevice();
+}
+
 
 void RealSenseNodeFactory::closeDevice()
 {
@@ -44,7 +49,7 @@ void RealSenseNodeFactory::closeDevice()
 		sensor.close();
 	}
 }
-
+/*
 void RealSenseNodeFactory::signalHandler(int signum)
 {
 	ROS_INFO_STREAM(strsignal(signum) << " Signal is received! Terminating RealSense Node...");
@@ -52,7 +57,7 @@ void RealSenseNodeFactory::signalHandler(int signum)
 	ros::shutdown();
 	exit(signum);
 }
-
+*/
 rs2::device RealSenseNodeFactory::getDevice()
 {
 	rs2::device retDev;

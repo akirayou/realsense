@@ -35,7 +35,6 @@ namespace realsense2_camera
     const stream_index_pair ACCEL{RS2_STREAM_ACCEL, 0};
     const stream_index_pair POSE{RS2_STREAM_POSE, 0};
     
-
     const std::vector<stream_index_pair> IMAGE_STREAMS = {DEPTH, INFRA1, INFRA2,
                                                           COLOR,
                                                           FISHEYE,
@@ -55,11 +54,11 @@ namespace realsense2_camera
     {
     public:
         RealSenseNodeFactory();
-        virtual ~RealSenseNodeFactory() {}
+        virtual ~RealSenseNodeFactory();
 
     private:
-        static void signalHandler(int signum);
-        static void closeDevice();
+        //static void signalHandler(int signum);
+        void closeDevice();
         void StartDevice();
         void change_device_callback(rs2::event_information& info);
         rs2::device getDevice();
@@ -70,5 +69,6 @@ namespace realsense2_camera
         rs2::context _ctx;
         std::string _serial_no;
         bool _initial_reset;
+        rs2::device _device;
     };
 }//end namespace
